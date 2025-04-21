@@ -149,7 +149,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                   <p className="text-white font-medium">Sazara Tech Foundation</p>
                   <CheckCircle className="h-4 w-4 text-blue-400 ml-1" />
                 </div>
-                <p className="text-xs text-gray-400">Official DuCrowd's Partner</p>
+                <p className="text-xs text-gray-400">Official DuCrowd&apos;s Partner</p>
               </div>
             </div>
           </div>
@@ -303,7 +303,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
             </div>
 
             <p className="text-xs text-gray-400 mb-3">
-              You'll be redirected to MiniPay to complete your transaction securely.
+              You&apos;ll be redirected to MiniPay to complete your transaction securely.
             </p>
 
             {miniPayLink && (
@@ -411,7 +411,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                           <p className="text-white font-medium">Sazara Tech Foundation</p>
                           <CheckCircle className="h-4 w-4 text-blue-400 ml-1" />
                         </div>
-                        <p className="text-xs text-gray-400">Official DuCrowd's Partner</p>
+                        <p className="text-xs text-gray-400">Official DuCrowd&apos;s Partner</p>
                       </div>
                     </div>
                   </div>
