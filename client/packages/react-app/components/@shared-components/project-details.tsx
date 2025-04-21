@@ -36,8 +36,8 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
         }
 
         setProject(projectData)
-        setContributions(MOCK_CONTRIBUTIONS[id] || [])
-        setUpdates(MOCK_UPDATES[id] || [])
+        setContributions(MOCK_CONTRIBUTIONS[id as keyof typeof MOCK_CONTRIBUTIONS] || [])
+        setUpdates(MOCK_UPDATES[id as keyof typeof MOCK_UPDATES] || [])
         setLoading(false)
       } catch (error) {
         console.error("Failed to fetch project data:", error)
