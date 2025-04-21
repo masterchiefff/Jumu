@@ -26,9 +26,9 @@ const africasTalking = AfricasTalking({
     username: AFRICASTALKING_USERNAME,
 }); 
 
-const web3 = new Web3(CELO_RPC_URL);
-const account = web3.eth.accounts.privateKeyToAccount(PRIVATE_KEY);
-web3.eth.accounts.wallet.add(account);
+// const web3 = new Web3(CELO_RPC_URL);
+// const account = web3.eth.accounts.privateKeyToAccount(PRIVATE_KEY);
+// web3.eth.accounts.wallet.add(account);
 
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
