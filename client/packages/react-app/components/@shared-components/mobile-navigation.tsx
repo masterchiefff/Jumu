@@ -1,14 +1,41 @@
 "use client"
 
-import { Home, Compass, Wallet, Settings, Plus } from "lucide-react"
-import Link from "next/link"
+import { Home, Compass, Wallet, Settings, Plus } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAccount, useConnect } from "wagmi";
+import { injected } from "wagmi/connectors";
 
 interface MobileNavigationProps {
-  activeTab: string
-  setActiveTab: (tab: string) => void
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
 }
 
 export default function MobileNavigation({ activeTab, setActiveTab }: MobileNavigationProps) {
+  const { isConnected } = useAccount();
+  const { connect } = useConnect();
+  const router = useRouter();
+
+  const handleCreateClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    setActiveTab("create");
+
+    if (!isConnected) {
+      try {
+        if (window.ethereum && window.ethereum.isMiniPay) {
+          connect({ connector: injected({ target: "metaMask" }) });
+        } else {
+          throw new Error("MiniPay wallet not detected");
+        }
+      } catch (error) {
+        console.error("Wallet connection failed:", error);
+        // Optionally show error in UI
+        return;
+      }
+    }
+    router.push("/create");
+  };
+
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-black px-4 py-3 flex justify-between items-center border-t border-gray-800">
       <Link
@@ -27,10 +54,9 @@ export default function MobileNavigation({ activeTab, setActiveTab }: MobileNavi
         <Compass className="h-5 w-5" />
         <span className="text-xs mt-1">Explore</span>
       </Link>
-      <Link
-        href="/create"
+      <button
+        onClick={handleCreateClick}
         className="flex items-center justify-center"
-        onClick={() => setActiveTab("create")}
       >
         <div
           className={`bg-indigo-600 rounded-full p-3 ${
@@ -39,7 +65,7 @@ export default function MobileNavigation({ activeTab, setActiveTab }: MobileNavi
         >
           <Plus className="h-6 w-6 text-white" />
         </div>
-      </Link>
+      </button>
       <Link
         href="/wallet"
         className={`flex flex-col items-center ${activeTab === "wallet" ? "text-white" : "text-gray-500"}`}
@@ -57,5 +83,5 @@ export default function MobileNavigation({ activeTab, setActiveTab }: MobileNavi
         <span className="text-xs mt-1">Settings</span>
       </Link>
     </div>
-  )
+  );
 }

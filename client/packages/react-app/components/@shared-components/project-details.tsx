@@ -1,92 +1,161 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { ChevronLeft, MoreVertical, User, Calendar, CheckCircle, Check } from "lucide-react"
-import QRCode from "qrcode.react"
-import { MOCK_PROJECTS, MOCK_CONTRIBUTIONS, MOCK_UPDATES } from "@/lib/mock-data"
-import { calculateProgress, getProgressColor, weiToCUSD } from "@/lib/utils"
-import MobileNavigation from "@/components/@shared-components/mobile-navigation"
-import DesktopSidebar from "@/components/@shared-components/desktop-sidebar"
-import ConnectWalletButton from "@/components/@shared-components/connect-wallet-button"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { ChevronLeft, MoreVertical, User, Calendar, CheckCircle, Check } from "lucide-react";
+import QRCode from "qrcode.react"; // Ensure default import
+import { useAccount, useContractRead } from "wagmi";
+import { formatEther } from "viem";
+import MobileNavigation from "@/components/@shared-components/mobile-navigation";
+import DesktopSidebar from "@/components/@shared-components/desktop-sidebar";
+import ConnectWalletButton from "@/components/@shared-components/connect-wallet-button";
+import { calculateProgress, getProgressColor, weiToCUSD } from "@/lib/utils";
+
+// CampaignFactory ABI (subset for getCampaigns)
+const campaignFactoryABI = [
+  {
+    inputs: [],
+    name: "getCampaigns",
+    outputs: [
+      {
+        components: [
+          { internalType: "string", name: "id", type: "string" },
+          { internalType: "string", name: "title", type: "string" },
+          { internalType: "string", name: "description", type: "string" },
+          { internalType: "uint256", name: "targetAmount", type: "uint256" },
+          { internalType: "string", name: "location", type: "string" },
+          { internalType: "string", name: "category", type: "string" },
+          { internalType: "string", name: "imageUrl", type: "string" },
+          { internalType: "address", name: "creator", type: "address" },
+          { internalType: "uint256", name: "createdAt", type: "uint256" },
+        ],
+        internalType: "struct CampaignFactory.Campaign[]",
+        name: "",
+        type: "tuple[]",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+];
+
+// Replace with your deployed CampaignFactory contract address
+const CONTRACT_ADDRESS = "0xYourContractAddress";
 
 export default function ProjectDetailsPage({ projectId }: { projectId: string }) {
-  const [project, setProject] = useState<any>(null)
-  const [contributions, setContributions] = useState<any[]>([])
-  const [updates, setUpdates] = useState<any[]>([])
-  const [loading, setLoading] = useState<boolean>(true)
-  const [contributionAmount, setContributionAmount] = useState<string>("50")
-  const [miniPayLink, setMiniPayLink] = useState<string>("")
-  const [isPaymentScreenOpen, setIsPaymentScreenOpen] = useState<boolean>(false)
-  const [activeTab, setActiveTab] = useState<string>("home")
-  const router = useRouter()
+  const [project, setProject] = useState<any>(null);
+  const [contributions, setContributions] = useState<any[]>([]);
+  const [updates, setUpdates] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [contributionAmount, setContributionAmount] = useState<string>("50");
+  const [miniPayLink, setMiniPayLink] = useState<string>("");
+  const [isPaymentScreenOpen, setIsPaymentScreenOpen] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<string>("home");
+  const { address, isConnected } = useAccount();
+  const router = useRouter();
 
-  // Initialize data
+  // Fetch project data from Celo Alfajores
+  const { data: campaigns, isLoading: isContractLoading } = useContractRead({
+    address: CONTRACT_ADDRESS,
+    abi: campaignFactoryABI,
+    functionName: "getCampaigns",
+    chainId: 44787, // Alfajores chain ID
+  });
+
   useEffect(() => {
     const fetchProjectData = async () => {
       try {
-        setLoading(true)
-        // In a real app, we would fetch from the blockchain
-        const id = Number.parseInt(projectId)
-        const projectData = MOCK_PROJECTS.find((p) => p.id === id)
+        setLoading(true);
 
-        if (!projectData) {
-          router.push("/")
-          return
+        // Find project by ID from blockchain data
+        if (campaigns) {
+          const projectData = (campaigns as any[]).find((p) => p.id === projectId);
+          if (!projectData) {
+            router.push("/");
+            return;
+          }
+
+          // Map blockchain data to project format
+          const formattedProject = {
+            id: projectData.id,
+            title: projectData.title,
+            description: projectData.description,
+            targetAmount: parseFloat(formatEther(projectData.targetAmount)),
+            currentAmount: 0, // Replace with actual contribution tracking
+            image: projectData.imageUrl || "/placeholder.svg",
+            creator: projectData.creator,
+            location: projectData.location,
+            category: projectData.category,
+            createdAt: new Date(Number(projectData.createdAt) * 1000).toISOString(),
+          };
+
+          setProject(formattedProject);
+          // For contributions and updates, fetch from backend or contract events
+          // Placeholder: Using mock data for now
+          setContributions([]); // Replace with real contribution data
+          setUpdates([]); // Replace with real update data
         }
 
-        setProject(projectData)
-        setContributions(MOCK_CONTRIBUTIONS[id as keyof typeof MOCK_CONTRIBUTIONS] || [])
-        setUpdates(MOCK_UPDATES[id as keyof typeof MOCK_UPDATES] || [])
-        setLoading(false)
+        setLoading(false);
       } catch (error) {
-        console.error("Failed to fetch project data:", error)
-        setLoading(false)
+        console.error("Failed to fetch project data:", error);
+        setLoading(false);
+        router.push("/");
       }
-    }
+    };
 
-    fetchProjectData()
-  }, [projectId, router])
+    if (!isContractLoading) {
+      fetchProjectData();
+    }
+  }, [projectId, router, campaigns, isContractLoading]);
 
   // Generate MiniPay deep link
   const generateMiniPayLink = () => {
-    if (!project || !contributionAmount) return
-
-    // For demo, we'll create a mock deep link
-    const mockTxObject = {
-      to: "0xMockBuildPulseContractAddress",
-      value: contributionAmount,
-      data: `contribute(${project.id})`,
+    if (!project || !contributionAmount || !isConnected || !address) {
+      setMiniPayLink("");
+      return;
     }
 
-    const deepLink = `https://minipay.opera.com/send?tx=${encodeURIComponent(JSON.stringify(mockTxObject))}`
-    setMiniPayLink(deepLink)
-  }
+    // Create transaction object for MiniPay
+    const txObject = {
+      to: CONTRACT_ADDRESS,
+      value: (parseFloat(contributionAmount) * 1e18).toString(), // Convert cUSD to wei
+      data: `0x${Buffer.from(`contribute(${project.id})`).toString("hex")}`, // Mock function call
+    };
+
+    const deepLink = `https://minipay.opera.com/send?tx=${encodeURIComponent(JSON.stringify(txObject))}`;
+    setMiniPayLink(deepLink);
+  };
 
   // Open payment screen
   const openPaymentScreen = () => {
-    setIsPaymentScreenOpen(true)
-  }
+    if (!isConnected) {
+      alert("Please connect your MiniPay wallet to donate.");
+      return;
+    }
+    setIsPaymentScreenOpen(true);
+  };
 
   // Close payment screen
   const closePaymentScreen = () => {
-    setIsPaymentScreenOpen(false)
-  }
+    setIsPaymentScreenOpen(false);
+    setMiniPayLink("");
+  };
 
   // Handle payment
   const handlePayment = () => {
-    generateMiniPayLink()
-  }
+    generateMiniPayLink();
+  };
 
-  if (loading || !project) {
+  if (loading || isContractLoading || !project) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-4 border-indigo-500 rounded-full border-t-transparent"></div>
       </div>
-    )
+    );
   }
 
-  const progress = calculateProgress(project.currentAmount, project.targetAmount)
+  const progress = calculateProgress(project.currentAmount, project.targetAmount);
 
   // Render the details screen
   const renderDetailsScreen = () => {
@@ -107,7 +176,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
         <div className="flex justify-center items-center p-6 relative">
           <div className="absolute inset-0 bg-indigo-500 opacity-50 pattern-dots pattern-indigo-400 pattern-bg-indigo-600 pattern-size-4"></div>
           <img
-            src={project.image || "/placeholder.svg"}
+            src={project.image}
             alt={project.title}
             className="h-48 object-contain relative z-10"
           />
@@ -149,7 +218,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                   <p className="text-white font-medium">Sazara Tech Foundation</p>
                   <CheckCircle className="h-4 w-4 text-blue-400 ml-1" />
                 </div>
-                <p className="text-xs text-gray-400">Official DuCrowd&apos;s Partner</p>
+                <p className="text-xs text-gray-400">Official DuCrowd's Partner</p>
               </div>
             </div>
           </div>
@@ -216,8 +285,8 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
           </button>
         </div>
       </div>
-    )
-  }
+    );
+  };
 
   // Render the payment screen
   const renderPaymentScreen = () => {
@@ -290,7 +359,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center">
                 <div className="h-10 w-10 bg-indigo-600 rounded-full flex items-center justify-center mr-3">
-                  <img src="/placeholder.svg?height=24&width=24" alt="MiniPay" className="h-6 w-6" />
+                  <img src="/minipay-logo.svg" alt="MiniPay" className="h-6 w-6" />
                 </div>
                 <div>
                   <p className="text-white font-medium">MiniPay Wallet</p>
@@ -303,7 +372,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
             </div>
 
             <p className="text-xs text-gray-400 mb-3">
-              You&apos;ll be redirected to MiniPay to complete your transaction securely.
+              You'll be redirected to MiniPay to complete your transaction securely.
             </p>
 
             {miniPayLink && (
@@ -330,7 +399,10 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
         {/* Pay button */}
         <div className="px-4 pb-8 mt-4">
           {!miniPayLink ? (
-            <button className="w-full bg-indigo-600 text-white rounded-full py-4 font-medium" onClick={handlePayment}>
+            <button
+              className="w-full bg-indigo-600 text-white rounded-full py-4 font-medium"
+              onClick={handlePayment}
+            >
               Donate {contributionAmount} cUSD
             </button>
           ) : (
@@ -343,8 +415,8 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
           )}
         </div>
       </div>
-    )
-  }
+    );
+  };
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -357,7 +429,10 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
         <div className="flex-1 overflow-hidden">
           {/* Header */}
           <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-            <button className="flex items-center text-gray-300 hover:text-white" onClick={() => router.push("/")}>
+            <button
+              className="flex items-center text-gray-300 hover:text-white"
+              onClick={() => router.push("/")}
+            >
               <ChevronLeft className="h-5 w-5 mr-1" />
               <span>Back to Projects</span>
             </button>
@@ -371,7 +446,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                 <div className="absolute inset-0 bg-indigo-500 opacity-50 pattern-dots pattern-indigo-400 pattern-bg-indigo-600 pattern-size-4 rounded-xl"></div>
                 <div className="relative z-10 flex-1 flex items-center justify-center">
                   <img
-                    src={project.image || "/placeholder.svg"}
+                    src={project.image}
                     alt={project.title}
                     className="max-h-80 max-w-full object-contain"
                   />
@@ -411,7 +486,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                           <p className="text-white font-medium">Sazara Tech Foundation</p>
                           <CheckCircle className="h-4 w-4 text-blue-400 ml-1" />
                         </div>
-                        <p className="text-xs text-gray-400">Official DuCrowd&apos;s Partner</p>
+                        <p className="text-xs text-gray-400">Official DuCrowd's Partner</p>
                       </div>
                     </div>
                   </div>
@@ -533,7 +608,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center">
                         <div className="h-10 w-10 bg-indigo-600 rounded-full flex items-center justify-center mr-3">
-                          <img src="/placeholder.svg?height=24&width=24" alt="MiniPay" className="h-6 w-6" />
+                          <img src="/minipay-logo.svg" alt="MiniPay" className="h-6 w-6" />
                         </div>
                         <div>
                           <p className="text-white font-medium">MiniPay Wallet</p>
@@ -598,5 +673,5 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
         <MobileNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
       </div>
     </div>
-  )
+  );
 }
