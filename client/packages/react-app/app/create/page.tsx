@@ -611,7 +611,7 @@ export default function CreateCampaignPage() {
         </div>
 
         {/* Categories */}
-        <Categories />
+        {/* <Categories /> */}
 
         {/* Bottom navigation */}
         <MobileNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
