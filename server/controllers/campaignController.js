@@ -117,6 +117,7 @@ exports.createCampaign = [
         createdAt: campaign.createdAt,
       });
     } catch (error) {
+      console.error('Error creating campaign:', error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors });
       }
