@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, MoreVertical, User, Calendar, CheckCircle, Check } from "lucide-react";
-import { useAccount, useContractWrite } from "wagmi";
+import { useAccount, useWriteContract } from "wagmi";
 import MobileNavigation from "@/components/@shared-components/mobile-navigation";
 import DesktopSidebar from "@/components/@shared-components/desktop-sidebar";
 import ConnectWalletButton from "@/components/@shared-components/connect-wallet-button";
@@ -62,12 +62,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
   const router = useRouter();
 
   // Wagmi hook for contract write
-  const { write, isLoading: isTxLoading } = useContractWrite({
-    address: CONTRACT_ADDRESS,
-    abi: campaignFactoryABI,
-    functionName: "contribute",
-    chainId: 44787, // Alfajores chain ID
-  });
+  const { writeContract, isPending: isTxPending, error: txError } = useWriteContract();
 
   // Fetch project data from backend
   useEffect(() => {
@@ -92,6 +87,13 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
     fetchProjectData();
   }, [projectId, router]);
 
+  // Handle transaction errors
+  useEffect(() => {
+    if (txError) {
+      setError(`Transaction failed: ${txError.message}`);
+    }
+  }, [txError]);
+
   // Open payment screen
   const openPaymentScreen = () => {
     if (!isConnected) {
@@ -114,10 +116,21 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
       return;
     }
 
-    const amountInWei = BigInt(parseFloat(contributionAmount) * 1e18);
-    write({
+    // Validate contribution amount
+    const amount = parseFloat(contributionAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setError("Please enter a valid donation amount");
+      return;
+    }
+
+    const amountInWei = BigInt(amount * 1e18);
+    writeContract({
+      address: CONTRACT_ADDRESS,
+      abi: campaignFactoryABI,
+      functionName: "contribute",
       args: [project.id],
       value: amountInWei,
+      chainId: 44787, // Alfajores chain ID
     });
   };
 
@@ -192,7 +205,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                   <p className="text-white font-medium">Sazara Tech Foundation</p>
                   <CheckCircle className="h-4 w-4 text-blue-400 ml-1" />
                 </div>
-                <p className="text-xs text-gray-400">Official DuCrowd&apos;s Partner</p>
+                <p className="text-xs text-gray-400">Official DuCrowd's Partner</p>
               </div>
             </div>
           </div>
@@ -371,9 +384,9 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
             <button
               className="w-1/2 bg-indigo-600 text-white rounded-full py-3 font-medium disabled:opacity-70"
               onClick={handlePayment}
-              disabled={isTxLoading}
+              disabled={isTxPending}
             >
-              {isTxLoading ? (
+              {isTxPending ? (
                 <span className="flex items-center justify-center">
                   <span className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent mr-2"></span>
                   Processing...
@@ -456,7 +469,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                           <p className="text-white font-medium">Sazara Tech Foundation</p>
                           <CheckCircle className="h-4 w-4 text-blue-400 ml-1" />
                         </div>
-                        <p className="text-xs text-gray-400">Official DuCrowd&apos;s Partner</p>
+                        <p className="text-xs text-gray-400">Official DuCrowd's Partner</p>
                       </div>
                     </div>
                   </div>
@@ -611,9 +624,9 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                     <button
                       className="w-1/2 bg-indigo-600 text-white rounded-full py-3 font-medium disabled:opacity-70"
                       onClick={handlePayment}
-                      disabled={isTxLoading}
+                      disabled={isTxPending}
                     >
-                      {isTxLoading ? (
+                      {isTxPending ? (
                         <span className="flex items-center justify-center">
                           <span className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent mr-2"></span>
                           Processing...
