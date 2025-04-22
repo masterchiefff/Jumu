@@ -3,38 +3,21 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, MoreVertical, User, Calendar, CheckCircle, Check } from "lucide-react";
-import QRCode from "qrcode.react"; // Ensure default import
-import { useAccount, useContractRead } from "wagmi";
-import { formatEther } from "viem";
+import { useAccount, useContractWrite } from "wagmi";
 import MobileNavigation from "@/components/@shared-components/mobile-navigation";
 import DesktopSidebar from "@/components/@shared-components/desktop-sidebar";
 import ConnectWalletButton from "@/components/@shared-components/connect-wallet-button";
 import { calculateProgress, getProgressColor, weiToCUSD } from "@/lib/utils";
 
-// CampaignFactory ABI (subset for getCampaigns)
+// CampaignFactory ABI (subset for contribute)
 const campaignFactoryABI = [
   {
-    inputs: [],
-    name: "getCampaigns",
-    outputs: [
-      {
-        components: [
-          { internalType: "string", name: "id", type: "string" },
-          { internalType: "string", name: "title", type: "string" },
-          { internalType: "string", name: "description", type: "string" },
-          { internalType: "uint256", name: "targetAmount", type: "uint256" },
-          { internalType: "string", name: "location", type: "string" },
-          { internalType: "string", name: "category", type: "string" },
-          { internalType: "string", name: "imageUrl", type: "string" },
-          { internalType: "address", name: "creator", type: "address" },
-          { internalType: "uint256", name: "createdAt", type: "uint256" },
-        ],
-        internalType: "struct CampaignFactory.Campaign[]",
-        name: "",
-        type: "tuple[]",
-      },
+    inputs: [
+      { internalType: "string", name: "_id", type: "string" },
     ],
-    stateMutability: "view",
+    name: "contribute",
+    outputs: [],
+    stateMutability: "payable",
     type: "function",
   },
 ];
@@ -42,90 +25,72 @@ const campaignFactoryABI = [
 // Replace with your deployed CampaignFactory contract address
 const CONTRACT_ADDRESS = "0xYourContractAddress";
 
+interface Contribution {
+  contributor: string;
+  amount: number;
+  timestamp: string;
+}
+
+interface Update {
+  message: string;
+  timestamp: string;
+}
+
+interface Project {
+  id: string;
+  title: string;
+  description: string;
+  targetAmount: number;
+  currentAmount: number;
+  imageUrl: string;
+  creator: string;
+  location: string;
+  category: string;
+  createdAt: string;
+  contributions: Contribution[];
+  updates: Update[];
+}
+
 export default function ProjectDetailsPage({ projectId }: { projectId: string }) {
-  const [project, setProject] = useState<any>(null);
-  const [contributions, setContributions] = useState<any[]>([]);
-  const [updates, setUpdates] = useState<any[]>([]);
+  const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [contributionAmount, setContributionAmount] = useState<string>("50");
-  const [miniPayLink, setMiniPayLink] = useState<string>("");
   const [isPaymentScreenOpen, setIsPaymentScreenOpen] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>("home");
+  const [error, setError] = useState<string>("");
   const { address, isConnected } = useAccount();
   const router = useRouter();
 
-  // Fetch project data from Celo Alfajores
-  const { data: campaigns, isLoading: isContractLoading } = useContractRead({
+  // Wagmi hook for contract write
+  const { write, isLoading: isTxLoading } = useContractWrite({
     address: CONTRACT_ADDRESS,
     abi: campaignFactoryABI,
-    functionName: "getCampaigns",
+    functionName: "contribute",
     chainId: 44787, // Alfajores chain ID
   });
 
+  // Fetch project data from backend
   useEffect(() => {
     const fetchProjectData = async () => {
       try {
         setLoading(true);
-
-        // Find project by ID from blockchain data
-        if (campaigns) {
-          const projectData = (campaigns as any[]).find((p) => p.id === projectId);
-          if (!projectData) {
-            router.push("/");
-            return;
-          }
-
-          // Map blockchain data to project format
-          const formattedProject = {
-            id: projectData.id,
-            title: projectData.title,
-            description: projectData.description,
-            targetAmount: parseFloat(formatEther(projectData.targetAmount)),
-            currentAmount: 0, // Replace with actual contribution tracking
-            image: projectData.imageUrl || "/placeholder.svg",
-            creator: projectData.creator,
-            location: projectData.location,
-            category: projectData.category,
-            createdAt: new Date(Number(projectData.createdAt) * 1000).toISOString(),
-          };
-
-          setProject(formattedProject);
-          // For contributions and updates, fetch from backend or contract events
-          // Placeholder: Using mock data for now
-          setContributions([]); // Replace with real contribution data
-          setUpdates([]); // Replace with real update data
+        const response = await fetch(`http://localhost:3001/api/campaigns/${projectId}`);
+        if (!response.ok) {
+          throw new Error("Campaign not found");
         }
-
+        const data: Project = await response.json();
+        setProject(data);
         setLoading(false);
-      } catch (error) {
-        console.error("Failed to fetch project data:", error);
+      } catch (err) {
+        console.error("Failed to fetch project data:", err);
+        setError("Failed to load project details");
         setLoading(false);
         router.push("/");
       }
     };
 
-    if (!isContractLoading) {
-      fetchProjectData();
-    }
-  }, [projectId, router, campaigns, isContractLoading]);
-
-  // Generate MiniPay deep link
-  const generateMiniPayLink = () => {
-    if (!project || !contributionAmount || !isConnected || !address) {
-      setMiniPayLink("");
-      return;
-    }
-
-    // Create transaction object for MiniPay
-    const txObject = {
-      to: CONTRACT_ADDRESS,
-      value: (parseFloat(contributionAmount) * 1e18).toString(), // Convert cUSD to wei
-      data: `0x${Buffer.from(`contribute(${project.id})`).toString("hex")}`, // Mock function call
-    };
-
-    const deepLink = `https://minipay.opera.com/send?tx=${encodeURIComponent(JSON.stringify(txObject))}`;
-    setMiniPayLink(deepLink);
-  };
+    fetchProjectData();
+  }, [projectId, router]);
 
   // Open payment screen
   const openPaymentScreen = () => {
@@ -139,15 +104,24 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
   // Close payment screen
   const closePaymentScreen = () => {
     setIsPaymentScreenOpen(false);
-    setMiniPayLink("");
+    setError("");
   };
 
   // Handle payment
   const handlePayment = () => {
-    generateMiniPayLink();
+    if (!project || !contributionAmount || !isConnected || !address) {
+      setError("Please ensure wallet is connected and amount is valid");
+      return;
+    }
+
+    const amountInWei = BigInt(parseFloat(contributionAmount) * 1e18);
+    write({
+      args: [project.id],
+      value: amountInWei,
+    });
   };
 
-  if (loading || isContractLoading || !project) {
+  if (loading || !project) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-4 border-indigo-500 rounded-full border-t-transparent"></div>
@@ -176,7 +150,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
         <div className="flex justify-center items-center p-6 relative">
           <div className="absolute inset-0 bg-indigo-500 opacity-50 pattern-dots pattern-indigo-400 pattern-bg-indigo-600 pattern-size-4"></div>
           <img
-            src={project.image}
+            src={project.imageUrl || "/placeholder.svg"}
             alt={project.title}
             className="h-48 object-contain relative z-10"
           />
@@ -188,7 +162,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
 
           <div className="flex items-center text-sm text-gray-300 mb-3">
             <User className="h-4 w-4 mr-1" />
-            <span>14K Backers</span>
+            <span>{project.contributions.length} Backers</span>
             <span className="mx-2">•</span>
             <span>
               {weiToCUSD(project.currentAmount)} cUSD raised from {weiToCUSD(project.targetAmount)} cUSD
@@ -228,7 +202,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
             <div className="bg-gray-900 rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div className="flex">
-                  {[1, 2, 3, 4, 5].map((i) => (
+                  {project.contributions.slice(0, 5).map((_, i) => (
                     <div
                       key={i}
                       className="bg-gray-800 rounded-full h-8 w-8 flex items-center justify-center -ml-2 first:ml-0 border-2 border-gray-900"
@@ -236,13 +210,15 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                       <User className="h-4 w-4 text-gray-400" />
                     </div>
                   ))}
-                  <div className="bg-indigo-600 rounded-full h-8 w-8 flex items-center justify-center -ml-2 border-2 border-gray-900">
-                    <span className="text-xs text-white font-medium">14K+</span>
-                  </div>
+                  {project.contributions.length > 5 && (
+                    <div className="bg-indigo-600 rounded-full h-8 w-8 flex items-center justify-center -ml-2 border-2 border-gray-900">
+                      <span className="text-xs text-white font-medium">{project.contributions.length}+</span>
+                    </div>
+                  )}
                 </div>
                 <button className="text-sm text-indigo-400">View People</button>
               </div>
-              <p className="text-sm text-gray-400 mt-2">More than 14k people donated</p>
+              <p className="text-sm text-gray-400 mt-2">{project.contributions.length} people donated</p>
             </div>
           </div>
 
@@ -256,8 +232,8 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
           <div className="mb-4">
             <h3 className="text-white font-medium mb-2">Recent Updates</h3>
             <div className="bg-gray-900 rounded-lg p-4 space-y-3">
-              {updates.length > 0 ? (
-                updates.map((update, index) => (
+              {project.updates.length > 0 ? (
+                project.updates.map((update, index) => (
                   <div key={index} className="flex items-start">
                     <div className="mt-1 mr-3">
                       <div className="h-2 w-2 rounded-full bg-indigo-500"></div>
@@ -372,47 +348,41 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
             </div>
 
             <p className="text-xs text-gray-400 mb-3">
-              You'll be redirected to MiniPay to complete your transaction securely.
+              Your donation will be processed securely via MiniPay.
             </p>
-
-            {miniPayLink && (
-              <div className="bg-gray-900 p-4 rounded-lg">
-                <div className="flex justify-center mb-3">
-                  <QRCode value={miniPayLink} size={150} />
-                </div>
-                <p className="text-center text-xs text-gray-400 mb-2">
-                  Scan with your MiniPay app or click the button below
-                </p>
-                <a
-                  href={miniPayLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full bg-indigo-600 text-white text-center py-2 rounded-lg"
-                >
-                  Open in MiniPay
-                </a>
-              </div>
-            )}
           </div>
+
+          {error && (
+            <div className="bg-red-900 text-red-200 p-4 rounded-lg mb-4 flex items-start">
+              <p>{error}</p>
+            </div>
+          )}
         </div>
 
         {/* Pay button */}
         <div className="px-4 pb-8 mt-4">
-          {!miniPayLink ? (
+          <div className="flex gap-3">
             <button
-              className="w-full bg-indigo-600 text-white rounded-full py-4 font-medium"
-              onClick={handlePayment}
-            >
-              Donate {contributionAmount} cUSD
-            </button>
-          ) : (
-            <button
-              className="w-full bg-gray-800 text-white rounded-full py-4 font-medium"
+              className="w-1/2 bg-gray-800 text-white rounded-full py-3 font-medium"
               onClick={closePaymentScreen}
             >
               Cancel
             </button>
-          )}
+            <button
+              className="w-1/2 bg-indigo-600 text-white rounded-full py-3 font-medium disabled:opacity-70"
+              onClick={handlePayment}
+              disabled={isTxLoading}
+            >
+              {isTxLoading ? (
+                <span className="flex items-center justify-center">
+                  <span className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent mr-2"></span>
+                  Processing...
+                </span>
+              ) : (
+                `Donate ${contributionAmount} cUSD`
+              )}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -446,7 +416,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                 <div className="absolute inset-0 bg-indigo-500 opacity-50 pattern-dots pattern-indigo-400 pattern-bg-indigo-600 pattern-size-4 rounded-xl"></div>
                 <div className="relative z-10 flex-1 flex items-center justify-center">
                   <img
-                    src={project.image}
+                    src={project.imageUrl || "/placeholder.svg"}
                     alt={project.title}
                     className="max-h-80 max-w-full object-contain"
                   />
@@ -455,7 +425,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                   <h1 className="text-3xl font-bold text-white mb-2">{project.title}</h1>
                   <div className="flex items-center text-white mb-4">
                     <User className="h-4 w-4 mr-1" />
-                    <span>14K Backers</span>
+                    <span>{project.contributions.length} Backers</span>
                     <span className="mx-2">•</span>
                     <span>
                       {weiToCUSD(project.currentAmount)} cUSD raised from {weiToCUSD(project.targetAmount)} cUSD
@@ -501,8 +471,8 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                   <div className="mb-6">
                     <h3 className="text-white font-medium mb-3">Recent Updates</h3>
                     <div className="bg-gray-900 rounded-lg p-4 space-y-4">
-                      {updates.length > 0 ? (
-                        updates.map((update, index) => (
+                      {project.updates.length > 0 ? (
+                        project.updates.map((update, index) => (
                           <div key={index} className="flex items-start">
                             <div className="mt-1 mr-3">
                               <div className="h-2 w-2 rounded-full bg-indigo-500"></div>
@@ -526,8 +496,8 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                     <h3 className="text-white font-medium mb-3">Recent Contributions</h3>
                     <div className="bg-gray-900 rounded-lg p-4">
                       <div className="space-y-3 max-h-40 overflow-y-auto">
-                        {contributions.length > 0 ? (
-                          contributions.map((contribution, index) => (
+                        {project.contributions.length > 0 ? (
+                          project.contributions.map((contribution, index) => (
                             <div key={index} className="flex justify-between items-center">
                               <div className="flex items-center">
                                 <div className="bg-gray-800 rounded-full h-8 w-8 flex items-center justify-center mr-2">
@@ -620,22 +590,13 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                       </div>
                     </div>
 
-                    {miniPayLink && (
-                      <div className="bg-gray-800 p-4 rounded-lg">
-                        <div className="flex justify-center mb-3">
-                          <QRCode value={miniPayLink} size={200} />
-                        </div>
-                        <p className="text-center text-xs text-gray-400 mb-2">
-                          Scan with your MiniPay app or click the button below
-                        </p>
-                        <a
-                          href={miniPayLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block w-full bg-indigo-600 text-white text-center py-2 rounded-lg"
-                        >
-                          Open in MiniPay
-                        </a>
+                    <p className="text-xs text-gray-400 mb-3">
+                      Your donation will be processed securely via MiniPay.
+                    </p>
+
+                    {error && (
+                      <div className="bg-red-900 text-red-200 p-4 rounded-lg mb-4 flex items-start">
+                        <p>{error}</p>
                       </div>
                     )}
                   </div>
@@ -647,14 +608,20 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                     >
                       Cancel
                     </button>
-                    {!miniPayLink && (
-                      <button
-                        className="w-1/2 bg-indigo-600 text-white rounded-full py-3 font-medium"
-                        onClick={handlePayment}
-                      >
-                        Donate {contributionAmount} cUSD
-                      </button>
-                    )}
+                    <button
+                      className="w-1/2 bg-indigo-600 text-white rounded-full py-3 font-medium disabled:opacity-70"
+                      onClick={handlePayment}
+                      disabled={isTxLoading}
+                    >
+                      {isTxLoading ? (
+                        <span className="flex items-center justify-center">
+                          <span className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent mr-2"></span>
+                          Processing...
+                        </span>
+                      ) : (
+                        `Donate ${contributionAmount} cUSD`
+                      )}
+                    </button>
                   </div>
                 </div>
               )}
