@@ -3,6 +3,10 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const campaignController = require('./controllers/campaignController');
+const dotenv = require('dotenv');
+
+dotenv.config();
+const mongoConnection = process.env.MONGODB_URI || 'mongodb://localhost:27017/crowdFunding'; // MongoDB URI
 
 // Initialize Express
 const app = express();
@@ -10,7 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 // Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/crowdFunding', {
+mongoose.connect(mongoConnection, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 }).then(() => {
