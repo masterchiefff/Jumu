@@ -33,7 +33,7 @@ export default function Home() {
     const fetchProjects = async () => {
       try {
         setLoading(true);
-        const response = await fetch("http://localhost:3001/api/campaigns");
+        const response = await fetch("https://jumu-9cg5.onrender.com/api/campaigns");
         if (!response.ok) {
           throw new Error("Failed to fetch campaigns");
         }
@@ -50,37 +50,37 @@ export default function Home() {
   }, []);
 
   // Categories component for reuse
-  const Categories = () => (
-    <div className="px-4 py-2">
-      <h2 className="text-lg font-bold text-white mb-4">Discover Campaign</h2>
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="flex flex-col items-center">
-          <div className="bg-gray-800 rounded-full p-3 mb-2">
-            <MapPin className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-xs text-gray-300">Near to You</span>
-        </div>
-        <div className="flex flex-col items-center">
-          <div className="bg-gray-800 rounded-full p-3 mb-2">
-            <Trophy className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-xs text-gray-300">Leaderboard</span>
-        </div>
-        <div className="flex flex-col items-center">
-          <div className="bg-gray-800 rounded-full p-3 mb-2">
-            <Star className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-xs text-gray-300">Challenge</span>
-        </div>
-        <div className="flex flex-col items-center">
-          <div className="bg-indigo-600 rounded-full p-3 mb-2">
-            <Plus className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-xs text-gray-300">New Projects</span>
-        </div>
-      </div>
-    </div>
-  );
+//   const Categories = () => (
+//     <div className="px-4 py-2">
+//       <h2 className="text-lg font-bold text-white mb-4">Discover Campaign</h2>
+//       <div className="grid grid-cols-4 gap-4 mb-6">
+//         <div className="flex flex-col items-center">
+//           <div className="bg-gray-800 rounded-full p-3 mb-2">
+//             <MapPin className="h-5 w-5 text-white" />
+//           </div>
+//           <span className="text-xs text-gray-300">Near to You</span>
+//         </div>
+//         <div className="flex flex-col items-center">
+//           <div className="bg-gray-800 rounded-full p-3 mb-2">
+//             <Trophy className="h-5 w-5 text-white" />
+//           </div>
+//           <span className="text-xs text-gray-300">Leaderboard</span>
+//         </div>
+//         <div className="flex flex-col items-center">
+//           <div className="bg-gray-800 rounded-full p-3 mb-2">
+//             <Star className="h-5 w-5 text-white" />
+//           </div>
+//           <span className="text-xs text-gray-300">Challenge</span>
+//         </div>
+//         <div className="flex flex-col items-center">
+//           <div className="bg-indigo-600 rounded-full p-3 mb-2">
+//             <Plus className="h-5 w-5 text-white" />
+//           </div>
+//           <span className="text-xs text-gray-300">New Projects</span>
+//         </div>
+//       </div>
+//     </div>
+//   );
 
   if (loading) {
     return (

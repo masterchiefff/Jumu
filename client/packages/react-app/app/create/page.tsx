@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Upload, X, AlertCircle } from "lucide-react";
+import { ChevronLeft, Upload, X, AlertCircle, MapPin, Trophy, Star, Plus } from "lucide-react";
 import MobileNavigation from "@/components/@shared-components/mobile-navigation";
 import DesktopSidebar from "@/components/@shared-components/desktop-sidebar";
 import ConnectWalletButton from "@/components/@shared-components/connect-wallet-button";
@@ -40,24 +40,34 @@ export default function CreateCampaignPage() {
   const [error, setError] = useState<string>("");
   const [showWalletPopup, setShowWalletPopup] = useState<boolean>(false);
   const { address, isConnected } = useAccount();
-  const { connect } = useConnect();
+  const { connect, connectors } = useConnect();
   const router = useRouter();
 
+  // Auto-connect MiniPay wallet
   useEffect(() => {
     if (window.ethereum && window.ethereum.isMiniPay && !isConnected) {
-      connect({ connector: injected({ target: "metaMask" }) });
+      const miniPayConnector = connectors.find((c) => c.id === "injected");
+      if (miniPayConnector) {
+        connect({ connector: miniPayConnector });
+      }
     }
-  }, [isConnected, connect]);
+  }, [connect, connectors, isConnected]);
 
+  // Show wallet popup when connected
   useEffect(() => {
     if (isConnected && address) {
       setShowWalletPopup(true);
     }
   }, [isConnected, address]);
 
+  // Handle image upload
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError("Image size must be less than 5MB");
+        return;
+      }
       setImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -67,34 +77,35 @@ export default function CreateCampaignPage() {
     }
   };
 
+  // Remove uploaded image
   const removeImage = () => {
     setImagePreview("");
     setImageFile(null);
   };
 
+  // Handle form submission
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setIsSubmitting(true);
 
-    if (!isConnected) {
+    if (!isConnected || !address) {
       try {
         if (window.ethereum && window.ethereum.isMiniPay) {
-          connect({ connector: injected({ target: "metaMask" }) });
+          const miniPayConnector = connectors.find((c) => c.id === "injected");
+          if (miniPayConnector) {
+            connect({ connector: miniPayConnector });
+          } else {
+            throw new Error("MiniPay connector not found");
+          }
         } else {
-          throw new Error("MiniPay wallet not detected");
+          throw new Error("MiniPay wallet not detected. Please use Opera with MiniPay.");
         }
       } catch (err) {
-        setError("Failed to connect MiniPay wallet");
+        setError(err instanceof Error ? err.message : "Failed to connect wallet");
         setIsSubmitting(false);
         return;
       }
-    }
-
-    if (!address) {
-      setError("No wallet address available");
-      setIsSubmitting(false);
-      return;
     }
 
     const formData = new FormData();
@@ -106,13 +117,14 @@ export default function CreateCampaignPage() {
     if (imageFile) {
       formData.append("image", imageFile);
     }
+    formData.append("creator", address!);
 
     try {
       const response = await fetch("https://jumu-9cg5.onrender.com/api/campaigns", {
         method: "POST",
         body: formData,
         headers: {
-          "X-MiniPay-Wallet": address,
+          "X-MiniPay-Wallet": address!,
         },
       });
 
@@ -121,18 +133,56 @@ export default function CreateCampaignPage() {
         if (Array.isArray(errorData.error)) {
           throw new Error(errorData.error.map((err) => err.message).join(", "));
         }
-        throw new Error(errorData.error || "Failed to create campaign");
+        throw new Error(errorData.error || `Failed to create campaign (HTTP ${response.status})`);
       }
 
       const data: CampaignResponse = await response.json();
       console.log("Campaign created:", data);
       router.push("/");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred");
+      console.error("Fetch error:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to connect to the server. Please check your network or try again later."
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Categories component
+  const Categories = () => (
+    <div className="px-4 py-2">
+      <h2 className="text-lg font-bold text-white mb-4">Discover Campaign</h2>
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="flex flex-col items-center">
+          <div className="bg-gray-800 rounded-full p-3 mb-2">
+            <MapPin className="h-5 w-5 text-white" />
+          </div>
+          <span className="text-xs text-gray-300">Near to You</span>
+        </div>
+        <div className="flex flex-col items-center">
+          <div className="bg-gray-800 rounded-full p-3 mb-2">
+            <Trophy className="h-5 w-5 text-white" />
+          </div>
+          <span className="text-xs text-gray-300">Leaderboard</span>
+        </div>
+        <div className="flex flex-col items-center">
+          <div className="bg-gray-800 rounded-full p-3 mb-2">
+            <Star className="h-5 w-5 text-white" />
+          </div>
+          <span className="text-xs text-gray-300">Challenge</span>
+        </div>
+        <div className="flex flex-col items-center">
+          <div className="bg-indigo-600 rounded-full p-3 mb-2">
+            <Plus className="h-5 w-5 text-white" />
+          </div>
+          <span className="text-xs text-gray-300">New Projects</span>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -559,6 +609,9 @@ export default function CreateCampaignPage() {
             </div>
           )}
         </div>
+
+        {/* Categories */}
+        <Categories />
 
         {/* Bottom navigation */}
         <MobileNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
