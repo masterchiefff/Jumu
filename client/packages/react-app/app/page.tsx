@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Dashboard from "@/components/@layouts/mainLayout";
 import { useAccount } from "wagmi";
+import { Link } from "lucide-react";
 
 interface Project {
   id: string;
@@ -29,7 +30,7 @@ export default function Home() {
     const fetchProjects = async () => {
       try {
         setLoading(true);
-        const response = await fetch("http://localhost:3001/api/campaigns");
+        const response = await fetch("https://jumu-9cg5.onrender.com/api/campaigns");
         if (!response.ok) {
           throw new Error("Failed to fetch campaigns");
         }
@@ -64,6 +65,21 @@ export default function Home() {
         >
           Connect Wallet
         </button>
+      </div>
+    );
+  }
+
+  if (projects.length === 0) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
+        <h1 className="text-2xl font-bold mb-4">No Projects to Display</h1>
+        <p className="text-gray-300 mb-6">There are currently no campaigns available.</p>
+        <Link
+          href="/create"
+          className="bg-indigo-600 text-white rounded-full py-3 px-6 font-medium"
+        >
+          Create a Project
+        </Link>
       </div>
     );
   }
