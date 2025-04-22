@@ -108,7 +108,7 @@ export default function CreateCampaignPage() {
     }
 
     try {
-      const response = await fetch("http://localhost:3001/api/campaigns", {
+      const response = await fetch("https://jumu-9cg5.onrender.com/api/campaigns", {
         method: "POST",
         body: formData,
         headers: {
