@@ -82,26 +82,13 @@ export default function CreateCampaignPage() {
     e.preventDefault();
     setError("");
     setIsSubmitting(true);
-
+  
     if (!isConnected || !address) {
-      try {
-        if (window.ethereum && window.ethereum.isMiniPay) {
-          const miniPayConnector = connectors.find((c) => c.id === "injected");
-          if (miniPayConnector) {
-            connect({ connector: miniPayConnector });
-          } else {
-            throw new Error("MiniPay connector not found");
-          }
-        } else {
-          throw new Error("MiniPay wallet not detected. Please use Opera with MiniPay.");
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to connect wallet");
-        setIsSubmitting(false);
-        return;
-      }
+      setError("Please connect your MiniPay wallet before submitting.");
+      setIsSubmitting(false);
+      return;
     }
-
+  
     const formData = new FormData();
     formData.append("title", title);
     formData.append("description", description);
@@ -111,26 +98,43 @@ export default function CreateCampaignPage() {
     if (imageFile) {
       formData.append("image", imageFile);
     }
-    formData.append("creator", address!);
-
+    formData.append("creator", address);
+  
+    // Log FormData
+    for (const [key, value] of formData.entries()) {
+      console.log(`FormData: ${key}=${value}`);
+    }
+  
     try {
       const response = await fetch("https://jumu-9cg5.onrender.com/api/campaigns", {
         method: "POST",
         body: formData,
         headers: {
-          "X-MiniPay-Wallet": address!,
+          "X-MiniPay-Wallet": address,
         },
       });
-
+  
+      const responseBody = await response.text();
+      console.log("Server response:", {
+        status: response.status,
+        statusText: response.statusText,
+        body: responseBody,
+      });
+  
       if (!response.ok) {
-        const errorData: ApiError = await response.json();
+        let errorData;
+        try {
+          errorData = JSON.parse(responseBody);
+        } catch {
+          throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
         if (Array.isArray(errorData.error)) {
           throw new Error(errorData.error.map((err) => err.message).join(", "));
         }
         throw new Error(errorData.error || `Failed to create campaign (HTTP ${response.status})`);
       }
-
-      const data: CampaignResponse = await response.json();
+  
+      const data: CampaignResponse = JSON.parse(responseBody);
       console.log("Campaign created:", data);
       router.push("/");
     } catch (err: unknown) {
@@ -587,7 +591,6 @@ export default function CreateCampaignPage() {
             </div>
           )}
         </div>
-        <Categories />
         <MobileNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
       </div>
     </div>
