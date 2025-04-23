@@ -101,7 +101,7 @@ export default function CreateCampaignPage() {
     formData.append("creator", address);
   
     // Log FormData
-    for (const [key, value] of formData.entries()) {
+    for (const [key, value] of Array.from(formData.entries())) {
       console.log(`FormData: ${key}=${value}`);
     }
   
@@ -129,7 +129,7 @@ export default function CreateCampaignPage() {
           throw new Error(`Server error: ${response.status} ${response.statusText}`);
         }
         if (Array.isArray(errorData.error)) {
-          throw new Error(errorData.error.map((err) => err.message).join(", "));
+          throw new Error(errorData.error.map((err: { message: any; }) => err.message).join(", "));
         }
         throw new Error(errorData.error || `Failed to create campaign (HTTP ${response.status})`);
       }
