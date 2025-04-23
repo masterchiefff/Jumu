@@ -102,7 +102,7 @@ export default function CreateCampaignPage() {
           throw new Error("MiniPay wallet not detected. Please use Opera with MiniPay.");
         }
       } catch (err) {
-        setError(err instanceof Error ? err : "Failed to connect wallet");
+        setError(err instanceof Error ? err.message : "Failed to connect wallet");
         setIsSubmitting(false);
         return;
       }
