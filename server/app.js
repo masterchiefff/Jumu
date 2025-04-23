@@ -1,55 +1,37 @@
 const express = require('express');
-const cors = require('cors');
 const mongoose = require('mongoose');
-const multer = require('multer');
-const campaignController = require('./controllers/campaignController');
 const dotenv = require('dotenv');
+const campaignController = require('./controllers/campaignController');
+const path = require('path');
+const cors = require('cors');
 
+// Load environment variables
 dotenv.config();
-const mongoConnection = process.env.MONGODB_URI || 'mongodb://localhost:27017/crowdFunding';
 
-// Initialize Express
 const app = express();
-app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST"],
-  allowedHeaders: ["Content-Type", "X-MiniPay-Wallet"],
-}));
-app.use(express.json());
 
-// Multer configuration (move to campaignController or keep here)
-const upload = multer({
-  dest: 'uploads/',
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/png', 'image/jpeg', 'image/gif'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only PNG, JPG, and GIF are allowed.'));
-    }
-  },
-});
+// Middleware
+app.use(cors()); // Enable CORS for frontend
+app.use(express.json()); // Parse JSON bodies (for other routes)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Serve uploaded images
 
 // Connect to MongoDB
-mongoose.connect(mongoConnection, {
+mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-}).then(() => {
-  console.log('Connected to MongoDB (crowdFunding database)');
-}).catch((err) => {
-  console.error('MongoDB connection error:', err);
-});
+})
+  .then(() => console.log('Connected to MongoDB'))
+  .catch((err) => console.error('MongoDB connection error:', err));
 
 // Routes
-app.post('/api/campaigns', upload.single('image'), campaignController.createCampaign);
-app.get('/api/campaigns/:id', campaignController.getCampaign);
+app.post('/api/campaigns', campaignController.createCampaign);
 app.get('/api/campaigns', campaignController.getAllCampaigns);
+app.get('/api/campaigns/:id', campaignController.getCampaign);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 // Start server
