@@ -10,7 +10,11 @@ const mongoConnection = process.env.MONGODB_URI || 'mongodb://localhost:27017/cr
 
 // Initialize Express
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: "*", // Temporary for debugging; restrict in production
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type", "X-MiniPay-Wallet"],
+}));
 app.use(express.json());
 
 // Connect to MongoDB

@@ -10,7 +10,6 @@ import WalletPopup from "@/components/@shared-components/walletPopup";
 import { useAccount, useConnect } from "wagmi";
 import { injected } from "wagmi/connectors";
 
-// Define types for API response and error
 interface CampaignResponse {
   id: string;
   title: string;
@@ -43,7 +42,6 @@ export default function CreateCampaignPage() {
   const { connect, connectors } = useConnect();
   const router = useRouter();
 
-  // Auto-connect MiniPay wallet
   useEffect(() => {
     if (window.ethereum && window.ethereum.isMiniPay && !isConnected) {
       const miniPayConnector = connectors.find((c) => c.id === "injected");
@@ -53,14 +51,12 @@ export default function CreateCampaignPage() {
     }
   }, [connect, connectors, isConnected]);
 
-  // Show wallet popup when connected
   useEffect(() => {
     if (isConnected && address) {
       setShowWalletPopup(true);
     }
   }, [isConnected, address]);
 
-  // Handle image upload
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -77,13 +73,11 @@ export default function CreateCampaignPage() {
     }
   };
 
-  // Remove uploaded image
   const removeImage = () => {
     setImagePreview("");
     setImageFile(null);
   };
 
-  // Handle form submission
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
@@ -140,18 +134,26 @@ export default function CreateCampaignPage() {
       console.log("Campaign created:", data);
       router.push("/");
     } catch (err: unknown) {
-      console.error("Fetch error:", err);
+      console.error("Fetch error:", {
+        message: err instanceof Error ? err.message : "Unknown error",
+        stack: err instanceof Error ? err.stack : undefined,
+        url: "https://jumu-9cg5.onrender.com/api/campaigns",
+        address,
+      });
       setError(
         err instanceof Error
-          ? err.message
-          : "Failed to connect to the server. Please check your network or try again later."
+          ? err.message.includes("private key")
+            ? "Server configuration error. Please contact support."
+            : err.message.includes("network")
+            ? "Network error. Please check your connection and try again."
+            : err.message
+          : "Failed to connect to the server. Please try again later."
       );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Categories component
   const Categories = () => (
     <div className="px-4 py-2">
       <h2 className="text-lg font-bold text-white mb-4">Discover Campaign</h2>
@@ -193,12 +195,8 @@ export default function CreateCampaignPage() {
       />
       {/* Desktop layout */}
       <div className="hidden lg:flex h-screen">
-        {/* Sidebar */}
         <DesktopSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-
-        {/* Main content */}
         <div className="flex-1 overflow-hidden">
-          {/* Header */}
           <div className="p-4 border-b border-gray-800 flex items-center justify-between">
             <button
               className="flex items-center text-gray-300 hover:text-white"
@@ -209,8 +207,6 @@ export default function CreateCampaignPage() {
             </button>
             {!isConnected && <ConnectWalletButton />}
           </div>
-
-          {/* Form */}
           <div className="p-6 overflow-auto h-[calc(100vh-73px)]">
             {isConnected ? (
               <div>
@@ -241,7 +237,6 @@ export default function CreateCampaignPage() {
                           required
                         />
                       </div>
-
                       <div className="mb-6">
                         <label
                           htmlFor="description"
@@ -258,7 +253,6 @@ export default function CreateCampaignPage() {
                           required
                         />
                       </div>
-
                       <div className="mb-6">
                         <label
                           htmlFor="targetAmount"
@@ -279,7 +273,6 @@ export default function CreateCampaignPage() {
                         />
                       </div>
                     </div>
-
                     <div>
                       <div className="mb-6">
                         <label
@@ -298,7 +291,6 @@ export default function CreateCampaignPage() {
                           required
                         />
                       </div>
-
                       <div className="mb-6">
                         <label
                           htmlFor="category"
@@ -321,7 +313,6 @@ export default function CreateCampaignPage() {
                           <option value="infrastructure">Infrastructure</option>
                         </select>
                       </div>
-
                       <div className="mb-6">
                         <label className="block text-sm font-medium text-gray-300 mb-2">
                           Campaign Image
@@ -361,7 +352,6 @@ export default function CreateCampaignPage() {
                       </div>
                     </div>
                   </div>
-
                   <div className="bg-gray-900 rounded-lg p-4 mb-6 flex items-start">
                     <AlertCircle className="h-5 w-5 text-indigo-400 mr-3 mt-0.5" />
                     <div>
@@ -373,7 +363,6 @@ export default function CreateCampaignPage() {
                       </p>
                     </div>
                   </div>
-
                   <div className="flex gap-4">
                     <button
                       type="button"
@@ -414,18 +403,14 @@ export default function CreateCampaignPage() {
           </div>
         </div>
       </div>
-
       {/* Mobile layout */}
       <div className="lg:hidden min-h-screen flex flex-col pb-16">
-        {/* Header */}
         <div className="px-4 py-3 flex items-center">
           <button className="mr-3" onClick={() => router.push("/")}>
             <ChevronLeft className="h-5 w-5 text-white" />
           </button>
           <h1 className="text-lg font-bold">Create New Campaign</h1>
         </div>
-
-        {/* Form */}
         <div className="flex-1 overflow-auto p-4">
           {isConnected ? (
             <form onSubmit={handleSubmit}>
@@ -452,7 +437,6 @@ export default function CreateCampaignPage() {
                   required
                 />
               </div>
-
               <div className="mb-4">
                 <label
                   htmlFor="mobile-description"
@@ -469,7 +453,6 @@ export default function CreateCampaignPage() {
                   required
                 />
               </div>
-
               <div className="mb-4">
                 <label
                   htmlFor="mobile-targetAmount"
@@ -489,7 +472,6 @@ export default function CreateCampaignPage() {
                   required
                 />
               </div>
-
               <div className="mb-4">
                 <label
                   htmlFor="mobile-location"
@@ -507,7 +489,6 @@ export default function CreateCampaignPage() {
                   required
                 />
               </div>
-
               <div className="mb-4">
                 <label
                   htmlFor="mobile-category"
@@ -530,7 +511,6 @@ export default function CreateCampaignPage() {
                   <option value="infrastructure">Infrastructure</option>
                 </select>
               </div>
-
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Campaign Image
@@ -568,7 +548,6 @@ export default function CreateCampaignPage() {
                   </div>
                 )}
               </div>
-
               <div className="bg-gray-900 rounded-lg p-4 mb-6 flex items-start">
                 <AlertCircle className="h-5 w-5 text-indigo-400 mr-3 mt-0.5 flex-shrink-0" />
                 <div>
@@ -580,7 +559,6 @@ export default function CreateCampaignPage() {
                   </p>
                 </div>
               </div>
-
               <button
                 type="submit"
                 disabled={isSubmitting}
@@ -609,11 +587,7 @@ export default function CreateCampaignPage() {
             </div>
           )}
         </div>
-
-        {/* Categories */}
-        {/* <Categories /> */}
-
-        {/* Bottom navigation */}
+        <Categories />
         <MobileNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
       </div>
     </div>
