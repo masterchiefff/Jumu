@@ -35,7 +35,9 @@ app.listen(PORT, () => {
 
 // Routes
 app.post('/api/campaigns', campaignController.createCampaign);
-app.get("/api/campaigns/:id", campaignController.getCampaign);
+app.get("/api/campaigns/:id", campaignController.getCampaign);// Add this route
+app.get('/api/campaigns', campaignController.getAllCampaigns);
+
 
 // Error handling middleware
 app.use((err, req, res, next) => {

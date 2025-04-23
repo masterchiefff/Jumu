@@ -54,6 +54,36 @@ const uploadImage = async (file) => {
   return `https://example.com/uploads/${file.filename}`;
 };
 
+exports.getAllCampaigns = async (req, res) => {
+  try {
+    const campaigns = await Campaign.find(); // Fetch all campaigns from MongoDB
+    if (!campaigns || campaigns.length === 0) {
+      return res.status(200).json([]); // Return empty array if no campaigns exist
+    }
+
+    // Map campaigns to the desired response format
+    const response = campaigns.map(campaign => ({
+      id: campaign.campaignId,
+      title: campaign.title,
+      description: campaign.description,
+      targetAmount: campaign.targetAmount,
+      currentAmount: campaign.currentAmount || 0,
+      imageUrl: campaign.imageUrl,
+      creator: campaign.creator,
+      location: campaign.location,
+      category: campaign.category,
+      createdAt: campaign.createdAt,
+      contributions: campaign.contributions || [],
+      updates: campaign.updates || [],
+    }));
+
+    res.status(200).json(response);
+  } catch (error) {
+    console.error('Error fetching campaigns:', error.message, error.stack);
+    res.status(500).json({ error: 'Failed to fetch campaigns' });
+  }
+};
+
 exports.createCampaign = async (req, res, next) => {
   try {
     const { title, description, targetAmount, location, category, creator } = req.body;
